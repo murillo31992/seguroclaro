@@ -1,0 +1,135 @@
+<!-- SeguroClaro Analytics Tracking — cole antes de </body> -->
+<script>
+(function() {
+  const TRACKING_URL = 'https://seguroclaro-server.onrender.com';
+ 
+  // ── SESSAO PERSISTENTE (mesmo utilizador = mesmo ID) ──────────────
+  function getSessaoId() {
+    let id = localStorage.getItem('sc_sessao_id');
+    if (!id) {
+      id = 'sc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      localStorage.setItem('sc_sessao_id', id);
+    }
+    return id;
+  }
+ 
+  const SESSAO_ID = getSessaoId();
+ 
+  function enviar(endpoint, dados) {
+    try {
+      fetch(TRACKING_URL + '/api/track/' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessao_id: SESSAO_ID, ...dados })
+      }).catch(function(){});
+    } catch(e) {}
+  }
+ 
+  // ── REGISTAR VISITA ───────────────────────────────────────────────
+  enviar('visita', {
+    dispositivo: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+  });
+ 
+  // ── REGISTAR CLIQUE NOS RAMOS ─────────────────────────────────────
+  const _goToFormOriginal = window.goToForm;
+  window.goToForm = function(ramo) {
+    enviar('evento', { tipo: 'clique_ramo', ramo: ramo });
+    if (_goToFormOriginal) _goToFormOriginal(ramo);
+  };
+ 
+  // ── HELPER: MELHOR RESULTADO ──────────────────────────────────────
+  function getMelhor(results, ramo) {
+    if (!results || !results.length) return { seg: null, preco: null };
+    try {
+      if (ramo === 'saude') {
+        // saude tem estrutura diferente: results[i].plans[j].price
+        let melhorSeg = null, melhorPreco = Infinity;
+        results.forEach(function(r) {
+          if (r.plans && r.plans.length) {
+            r.plans.forEach(function(p) {
+              if (p.price < melhorPreco) { melhorPreco = p.price; melhorSeg = r.name; }
+            });
+          }
+        });
+        return { seg: melhorSeg, preco: melhorPreco === Infinity ? null : melhorPreco };
+      } else {
+        const sorted = results.slice().sort(function(a,b){ return a.price - b.price; });
+        return { seg: sorted[0].name, preco: sorted[0].price };
+      }
+    } catch(e) { return { seg: null, preco: null }; }
+  }
+ 
+  // ── INTERCEPTAR CALC AUTO ─────────────────────────────────────────
+  const _calcAutoOriginal = window.calcAuto;
+  window.calcAuto = function() {
+    if (_calcAutoOriginal) _calcAutoOriginal();
+    setTimeout(function() {
+      try {
+        const dados = window.lastResultsData || {};
+        const melhor = getMelhor(window.lastResults, 'auto');
+        enviar('simulacao', {
+          ramo: 'auto',
+          dados: dados,
+          melhor_seguradora: melhor.seg,
+          melhor_preco: melhor.preco
+        });
+      } catch(e) {}
+    }, 1200);
+  };
+ 
+  // ── INTERCEPTAR CALC HABITACAO ────────────────────────────────────
+  const _calcHabOriginal = window.calcHab;
+  window.calcHab = function() {
+    if (_calcHabOriginal) _calcHabOriginal();
+    setTimeout(function() {
+      try {
+        const dados = window.lastResultsData || {};
+        const melhor = getMelhor(window.lastResults, 'habitacao');
+        enviar('simulacao', {
+          ramo: 'habitacao',
+          dados: dados,
+          melhor_seguradora: melhor.seg,
+          melhor_preco: melhor.preco
+        });
+      } catch(e) {}
+    }, 1200);
+  };
+ 
+  // ── INTERCEPTAR CALC VIDA ─────────────────────────────────────────
+  const _calcVidaOriginal = window.calcVida;
+  window.calcVida = function() {
+    if (_calcVidaOriginal) _calcVidaOriginal();
+    setTimeout(function() {
+      try {
+        const dados = window.lastResultsData || {};
+        const melhor = getMelhor(window.lastResults, 'vida');
+        enviar('simulacao', {
+          ramo: 'vida',
+          dados: dados,
+          melhor_seguradora: melhor.seg,
+          melhor_preco: melhor.preco
+        });
+      } catch(e) {}
+    }, 1200);
+  };
+ 
+  // ── INTERCEPTAR CALC SAUDE ────────────────────────────────────────
+  const _calcSaudeOriginal = window.calcSaude;
+  window.calcSaude = function() {
+    if (_calcSaudeOriginal) _calcSaudeOriginal();
+    setTimeout(function() {
+      try {
+        const dados = window.lastResultsData || {};
+        const melhor = getMelhor(window.lastResults, 'saude');
+        enviar('simulacao', {
+          ramo: 'saude',
+          dados: dados,
+          melhor_seguradora: melhor.seg,
+          melhor_preco: melhor.preco
+        });
+      } catch(e) {}
+    }, 1200);
+  };
+ 
+})();
+</script>

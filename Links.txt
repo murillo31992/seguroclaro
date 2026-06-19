@@ -1,0 +1,4 @@
+Seguro
+
+Site- https://seguroclaro.netlify.app/seguro%20final.html
+Dashboard- https://seguroclaro-server.onrender.com/
